@@ -2,6 +2,9 @@
 name: Feature Request
 about: Suggest a new feature or enhancement
 title: ''
+labels: task
+assignees: ''
+type: Task
 ---
 
 **Description:**
