@@ -7,8 +7,6 @@ assignees: ''
 type: Task
 ---
 
-**Title:**
-
 **DOD (Definition of done):**
 
 **Test Scenarios:**
@@ -23,14 +21,6 @@ type: Task
 Add any other context or screenshots about the feature request here.
 
 ---
-
-*Optional additional items*
-
-**Issue default title:**
-
-**Assignees:**
-
-**Labels:**
 
 **Type:** Task
 
