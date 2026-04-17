@@ -7,8 +7,6 @@ assignees: ''
 type: Feature
 ---
 
-**Title:**
-
 **Description:**
 
 **Goal:**
@@ -26,9 +24,3 @@ type: Feature
 **Related information:**
 
 ---
-
-**Assignees:**
-
-**Labels:**
-
-**Type:** Feature
