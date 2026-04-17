@@ -24,9 +24,3 @@ type: Task
 **Related information:**
 
 ---
-
-
-
-**Labels:**
-
-**Type:** Feature
