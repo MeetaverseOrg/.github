@@ -1,0 +1,90 @@
+# Allowlist baseline for the MeetaverseOrg estate.
+#
+# Purpose: suppress the false positives that would otherwise train developers to
+# bypass the hook with --no-verify. Every entry keeps its stated reason.
+#
+# RETRACTION -- an earlier version of this header, and of the commit message on
+# c3c6006, claimed that betterleaks 1.8.x had dropped the legacy Gitleaks
+# `[[allowlists]]`/`paths` schema and that it silently suppressed nothing.
+# THAT CLAIM WAS FALSE and is withdrawn. It came from a test of mine that used
+# the regex `.*/testdata/.*`, which requires a leading path segment and so never
+# matched `testdata/creds.txt` at the repository root. The bug was in the test's
+# regex, not in the schema. Re-measured on 1.8.1 against a fixture with three
+# distinct secrets, in `src/creds.txt`, `testdata/creds.txt` and
+# `Assets/Thing.prefab.meta`:
+#
+#   no allowlist ................................................. 3 findings
+#   [[allowlists]] paths = ['(?:^|/)testdata/', '(?i)\.meta$'] .... 1 finding
+#   [[allowlists]] paths = ['.*/testdata/.*', '.*\.meta$'] ........ 2 findings
+#
+# The middle row is the point. The bottom row lands on 2 rather than 3 because
+# `.*\.meta$` DOES match `Assets/Thing.prefab.meta` (it has a leading segment)
+# while `.*/testdata/.*` does not match a root-level `testdata/` -- the same
+# regex bug, visible in one path and not the other.
+#
+# The legacy schema works correctly on 1.8.x. Git history cannot be rewritten,
+# so c3c6006's message stands uncorrected -- this note is the correction.
+#
+# We still use the Expr `prefilter` shape below, on its own merits: it is the
+# documented forward direction for 1.8.x (the upstream docs say "Filters replace
+# legacy allowlists, entropy checks, and token efficiency checks with Expr"),
+# and it runs before regex matching rather than after. Not because the
+# alternative is broken. It is not.
+#
+# ORDERING NOTE -- this one is real, and it is the dangerous one.
+#
+# `prefilter` is a TOP-LEVEL key and MUST stay ABOVE the `[extend]` table
+# header. In TOML a bare key written after a table header belongs to that table,
+# so moving `prefilter` below `[extend]` reparents it to `extend.prefilter`,
+# where nothing reads it. Every allowlist entry then stops working, with no
+# error anywhere. Measured on the same three-secret fixture:
+#
+#   prefilter ABOVE [extend] ..... 1 finding   `config check` says OK
+#   prefilter BELOW [extend] ..... 3 findings  `config check` says OK
+#
+# Confirmed at the parser level -- `tomllib` reports the top-level keys as
+# ['prefilter', 'extend'] in the first case and ['extend'] in the second, with
+# 'prefilter' sitting inside extend. `betterleaks config check` returns OK for
+# both, so it will not save you. Keep top-level keys first.
+#
+# A third trap, which at least fails loudly: Expr comments are `//`, not `#`.
+# A `#` inside the prefilter expression is a compile error.
+#
+# `prefilter` runs before any regex matching and sees only `attributes`.
+# `attributes["path"]` is the repository-relative path with forward slashes.
+# Regexes use the re2 engine.
+
+prefilter = '''
+filter.matchesAny(attributes["path"], [
+  // Unity asset and metadata files: GUIDs and fileIDs are not secrets.
+  `(?i)\.meta$`,
+  `(?i)\.asset$`,
+  `(?i)\.unity$`,
+  `(?i)\.prefab$`,
+  `(?:^|/)ProjectSettings/`,
+
+  // Example and template environment files contain placeholders by design.
+  `(?i)\.env\.example$`,
+  `(?i)\.env\.template$`,
+  `(?i)\.env\.sample$`,
+
+  // Test fixtures and mocks: deliberately fake credentials.
+  `(?:^|/)__fixtures__/`,
+  `(?:^|/)testdata/`,
+  `(?:^|/)fixtures/`,
+  `(?i)\.spec\.(?:ts|tsx|js|jsx|cs)$`,
+  `(?i)\.test\.(?:ts|tsx|js|jsx|cs)$`,
+
+  // Lockfiles: integrity hashes are routinely misread as secrets.
+  `(?:^|/)package-lock\.json$`,
+  `(?:^|/)yarn\.lock$`,
+  `(?:^|/)pnpm-lock\.yaml$`,
+  `(?:^|/)packages\.lock\.json$`,
+  `(?:^|/)go\.sum$`,
+])
+'''
+
+# Extend the upstream default ruleset rather than replacing it.
+# Do not set useDefault = false.
+[extend]
+useDefault = true
