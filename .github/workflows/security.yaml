@@ -1,0 +1,14 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    uses: MeetaverseOrg/shared-actions/.github/workflows/security-scan.yaml@main

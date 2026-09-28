@@ -1,0 +1,52 @@
+# Canonical secret-scanning hook for the MeetaverseOrg estate.
+#
+# Distributed by tools/rollout/fanout.py (org fanout) and
+# tools/dev/install-pre-commit.sh (developer machines).
+# Edit here, never in individual repos.
+#
+# The hook scans STAGED CHANGES ONLY (--staged), never history. Historical
+# secrets therefore never block a commit -- those are handled by the scheduled
+# full-history org scan in MeetaverseOrg/security-findings instead.
+#
+# Variant: `betterleaks-system` (language: system). It runs an already-installed
+# `betterleaks` binary, which tools/dev/install-pre-commit.sh puts on PATH.
+#   - NOT `betterleaks` (language: golang): pre-commit would compile from source
+#     on every machine, requiring a Go toolchain across mixed macOS/Windows.
+#   - NOT `betterleaks-docker`: it pins `:latest`, a mutable tag inside a
+#     security control.
+#
+# The allowlist lives in .betterleaks.toml at the repo root; betterleaks picks
+# it up automatically (config precedence: (target path)/.betterleaks.toml).
+repos:
+  - repo: https://github.com/betterleaks/betterleaks
+    rev: v1.8.1
+    hooks:
+      - id: betterleaks-system
+
+  # Refuse Terraform plan bundles outright.
+  #
+  # Measured on betterleaks 1.8.1: archive extraction is EXTENSION-DRIVEN.
+  # Identical zip bytes named `bundle.zip` are unpacked and scanned (one
+  # finding, commit blocked); named `bundle.plan` or `bundle.tfplan` they are
+  # skipped entirely (`scanned ~0 bytes`, no finding, commit succeeds), and a
+  # later `betterleaks git .` over that history reports "no leaks found".
+  # Invisible at the hook, in CI (same binary, same config) and at the history
+  # audit.
+  #
+  # This is not theoretical: four committed plan bundles put 12 live
+  # credentials on terraform-infra's main branch -- Grafana Cloud tokens, a
+  # MongoDB Atlas service-account key, the Auth0 M2M client secret, a Mailgun
+  # API key, a Cloudflare Origin CA token, a Docker Hub PAT, an Entra app
+  # password and an RSA private key.
+  #
+  # `language: fail` is built into pre-commit: no binary, no toolchain, works
+  # in Git Bash. A plan bundle is a build artefact that should not be committed
+  # on its own merits, secrets or not. To commit one deliberately:
+  #   SKIP=no-plan-bundles git commit ...
+  - repo: local
+    hooks:
+      - id: no-plan-bundles
+        name: Refuse to commit Terraform plan bundles
+        entry: "Plan bundles can embed live credentials and are not scannable. Do not commit them."
+        language: fail
+        files: '(?i)\.(plan|tfplan)$'
